@@ -41,15 +41,20 @@ def concepts_to_dataframe(content):
         dataframe = dataframe.append(column)
 
     dataframe = dataframe.set_index('guid')
+    logger.info(str(len(dataframe)) + ' of ' + str(len(concepts)) + ' found concepts in dataframe')
 
     return dataframe
+
+def write_to_csv(dataframe):
+    file_path = dirpath + '/' + sourcename[0:-4] + '.csv'
+    dataframe.to_csv(file_path, sep=";")
+    logger.info('wrote content to ' + file_path)
 
 
 def main():
     content = get_data(sourcename)
     dataframe = concepts_to_dataframe(content)
-    dataframe.to_csv(dirpath + '/' + sourcename[0:-4] + '.csv', sep=";")
-    # build_pandas_dataframe()
+    write_to_csv(dataframe)
 
 
 if __name__ == "__main__":
