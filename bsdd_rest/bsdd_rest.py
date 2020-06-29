@@ -12,11 +12,13 @@ concept_type = 'NEST'
 relationship_type = 'COLLECTS'
 content_type = 'application/json'
 
-api_url_base = 'http://test.bsdd.buildingsmart.org/api/4.0'
+api_url_base = 'http://bsdd.buildingsmart.org/api/4.0'
 api_url_login = '/session/login'
 api_url_concept = f'/IfdConcept/{concept_guid}'
 api_url_concept_filter = f'/IfdConcept/filter/{concept_type}'
 api_url_concept_children = f'/IfdConcept/{concept_guid}/children/{relationship_type}'
+
+concept_type_filter = 'ifc-2X4'
 
 
 def get_session_id():
@@ -29,7 +31,7 @@ def get_session_id():
     login_response = requests.post(api_url_base + api_url_login, data=data)
     logger.info(login_response.cookies)
     my_session_cookie = login_response.cookies
-    session_id = my_session_cookie.__dict__['_cookies']['.test.bsdd.buildingsmart.org']['/']['peregrineapisessionid']
+    session_id = my_session_cookie.__dict__['_cookies']['.bsdd.buildingsmart.org']['/']['peregrineapisessionid']
     session_id = session_id.__dict__['value']
     logger.info('session-id: ' + session_id)
 
@@ -76,33 +78,38 @@ def get_page_by_page_id(session_id, page_id):
     return received_page
 
 
-def get_concepts_by_concept_type(session_id):
+def get_concepts_by_concept_type(session_id, filter):
+    assert isinstance(filter, dict)
     page_id = 'first_page'
     page_count = 0
-    all_concepts_of_type = None
+    all_concepts_of_type = BeautifulSoup('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ifdconcepts></ifdconcepts>', 'html.parser')
     concept_count = 0
 
     while page_id:
         received_page = get_page_by_page_id(session_id, page_id)
         parsed_content = BeautifulSoup(received_page.content, 'html.parser')
 
-        if page_id == 'first_page':
-            all_concepts_of_type = parsed_content
-            for concept in parsed_content.find_all('ns2:ifdconcept'):
-                concept_count += 1
-        else:
-            for concept in parsed_content.find_all('ns2:ifdconcept'):
-                all_concepts_of_type.ifdconcepts.append(concept)
-                concept_count += 1
+        concepts_on_page = parsed_content.find_all('ns2:ifdconcept')
+        logger.info('found ' + str(len(concepts_on_page)) + ' concepts on page ' + str(page_count))
+
+        for concept in concepts_on_page:
+            for fullname in concept.find_all('fullnames'):
+                if concept_type_filter in str(fullname):
+                    all_concepts_of_type.ifdconcepts.append(concept)
+                    concept_count += 1
+
         page_id = received_page.headers.get('Next-Page')
-
         page_count += 1
-        if page_count == 2:
-            break
 
-    logger.info('received number of concepts ' + str(concept_count))
+        #for trial with max page-count
+        # if page_count == 2:
+        #     break
+
+    logger.info('got ' + str(concept_count) + ' concepts by filter for export')
 
     return all_concepts_of_type
+
+
 
 
 def get_children(session_id):
@@ -134,7 +141,7 @@ def write_to_xml (content, typeOfData):
 
 def main():
     session_id = get_session_id()
-    all_concepts_of_type = get_concepts_by_concept_type(session_id)
+    all_concepts_of_type = get_concepts_by_concept_type(session_id, concept_type_filter)
     write_to_xml(all_concepts_of_type, concept_type)
     # children(session_id)
 
