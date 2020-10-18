@@ -7,4 +7,4 @@ secrets.py
 # Distribution / packaging
 .Python
 trials/
-output/
+bsdd_rest/output/*.xml
